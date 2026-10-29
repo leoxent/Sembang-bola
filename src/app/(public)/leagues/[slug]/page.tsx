@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { LeagueLogo } from "@/components/public/LeagueLogo";
 import { notFound } from "next/navigation";
 import { ArticleCard } from "@/components/public/ArticleCard";
+import { LeadersTable } from "@/components/public/LeadersTable";
 import { MatchList } from "@/components/public/MatchList";
 import { SectionHeading } from "@/components/public/SectionHeading";
 import { StandingsTable } from "@/components/public/StandingsTable";
 import { COMPETITIONS } from "@/lib/leagues";
-import { getStandings } from "@/lib/providers/espn-standings";
+import { getLeaders, getStandings } from "@/lib/providers/espn-standings";
 import { getLatestArticles } from "@/server/queries/articles";
-import { getLeagueMatches, getLeagues } from "@/server/queries/matches";
+import { getLeagueMatches, getLeagues, getTeamSlugs } from "@/server/queries/matches";
 
 export const revalidate = 60;
 
@@ -28,11 +29,16 @@ export default async function LeaguePage({ params }: Props) {
   if (!league) notFound();
 
   const espnSlug = COMPETITIONS.find((l) => l.slug === league.slug)?.espn;
-  const [{ results, fixtures }, articles, standings] = await Promise.all([
+  const noLeaders = { goals: [], assists: [] };
+  const [{ results, fixtures }, articles, standings, leaders] = await Promise.all([
     getLeagueMatches(league.id),
     getLatestArticles({ leagueId: league.id, take: 3 }),
     espnSlug ? getStandings(espnSlug).catch(() => []) : Promise.resolve([]),
+    espnSlug ? getLeaders(espnSlug).catch(() => noLeaders) : Promise.resolve(noLeaders),
   ]);
+  const topScorers = leaders.goals.slice(0, 10);
+  const topAssists = leaders.assists.slice(0, 10);
+  const teamSlugs = await getTeamSlugs([...standings, ...topScorers, ...topAssists].map((r) => r.teamExternalId));
 
   return (
     <div className="space-y-10">
@@ -55,7 +61,7 @@ export default async function LeaguePage({ params }: Props) {
       <div className="grid gap-10 lg:grid-cols-[1.25fr_1fr]">
         <section className="min-w-0">
           <SectionHeading title={COMPETITIONS.find((c) => c.slug === league.slug)?.kind === "cup" ? "Kedudukan fasa liga" : "Kedudukan liga"} />
-          <StandingsTable rows={standings} />
+          <StandingsTable rows={standings} teamSlugs={teamSlugs} />
         </section>
         <div className="min-w-0 space-y-10">
           <section>
@@ -68,6 +74,16 @@ export default async function LeaguePage({ params }: Props) {
           </section>
         </div>
       </div>
+
+      {(topScorers.length > 0 || topAssists.length > 0) && (
+        <section>
+          <SectionHeading title="Raja gol & raja assist" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <LeadersTable title="Penjaring terbanyak" unit="gol" rows={topScorers} teamSlugs={teamSlugs} />
+            <LeadersTable title="Assist terbanyak" unit="ast" rows={topAssists} teamSlugs={teamSlugs} />
+          </div>
+        </section>
+      )}
 
       {articles.length > 0 && (
         <section>

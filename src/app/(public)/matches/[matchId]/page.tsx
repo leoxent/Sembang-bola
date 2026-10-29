@@ -7,6 +7,7 @@ import { AutoRefresh } from "@/components/public/AutoRefresh";
 import { MatchStatus } from "@/components/public/MatchStatus";
 import { MatchTimeline } from "@/components/public/match/MatchTimeline";
 import { PlayerStats } from "@/components/public/match/PlayerStats";
+import { ShareButtons } from "@/components/public/ShareButtons";
 import { TeamStats } from "@/components/public/match/TeamStats";
 import { TeamLogo } from "@/components/public/TeamLogo";
 import { toTimeline } from "@/lib/match-events";
@@ -40,6 +41,9 @@ export default async function MatchPage({ params }: Props) {
     (match.status === "SCHEDULED" && Math.abs(match.kickoffAt.getTime() - Date.now()) < 15 * 60_000);
   const stats = (match.teamStats ?? {}) as Record<string, Record<string, string>>;
   const timeline = toTimeline(match.events);
+  const shareTitle = started
+    ? `${match.homeTeam.name} ${match.homeScore ?? 0}–${match.awayScore ?? 0} ${match.awayTeam.name}`
+    : `${match.homeTeam.name} vs ${match.awayTeam.name}, ${formatDateTime(match.kickoffAt)}`;
 
   return (
     <div className="space-y-6">
@@ -53,10 +57,10 @@ export default async function MatchPage({ params }: Props) {
         </Link>
 
         <div className="relative mt-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-8">
-          <div className="flex flex-col items-center gap-3 text-center">
+          <Link href={`/kelab/${match.homeTeam.slug}`} className="group flex flex-col items-center gap-3 text-center">
             <TeamLogo src={match.homeTeam.logoUrl} name={match.homeTeam.name} size={72} />
-            <h1 className="text-sm font-bold sm:text-xl">{match.homeTeam.name}</h1>
-          </div>
+            <h1 className="text-sm font-bold group-hover:text-emerald-400 sm:text-xl">{match.homeTeam.name}</h1>
+          </Link>
           <div className="flex flex-col items-center gap-2">
             {started ? (
               <p className="text-4xl font-black tabular-nums tracking-tight sm:text-6xl">
@@ -69,10 +73,10 @@ export default async function MatchPage({ params }: Props) {
             )}
             <MatchStatus status={match.status} minute={match.minute} kickoffAt={match.kickoffAt} large />
           </div>
-          <div className="flex flex-col items-center gap-3 text-center">
+          <Link href={`/kelab/${match.awayTeam.slug}`} className="group flex flex-col items-center gap-3 text-center">
             <TeamLogo src={match.awayTeam.logoUrl} name={match.awayTeam.name} size={72} />
-            <h2 className="text-sm font-bold sm:text-xl">{match.awayTeam.name}</h2>
-          </div>
+            <h2 className="text-sm font-bold group-hover:text-emerald-400 sm:text-xl">{match.awayTeam.name}</h2>
+          </Link>
         </div>
 
         <p className="relative mt-6 text-center text-xs text-neutral-500">
@@ -80,6 +84,8 @@ export default async function MatchPage({ params }: Props) {
           {match.venue && ` · ${match.venue}`}
         </p>
       </section>
+
+      <ShareButtons title={shareTitle} path={`/matches/${match.id}`} className="justify-center" />
 
       {started ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_380px]">

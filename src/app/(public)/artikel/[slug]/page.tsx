@@ -6,6 +6,7 @@ import { AdminEditLink } from "@/components/public/AdminShortcuts";
 import { ArticleCard } from "@/components/public/ArticleCard";
 import { Markdown } from "@/components/public/Markdown";
 import { MatchRow } from "@/components/public/MatchList";
+import { ShareButtons } from "@/components/public/ShareButtons";
 import { coverFor } from "@/lib/cover";
 import { prisma } from "@/lib/prisma";
 import { formatDate, SITE_NAME, siteUrl } from "@/lib/site";
@@ -151,6 +152,8 @@ export default async function ArticlePage({ params }: Props) {
       <div className="mt-8">
         <Markdown>{article.body}</Markdown>
       </div>
+
+      <ShareButtons title={article.title} path={`/artikel/${article.slug}`} className="mt-10 border-t border-neutral-800 pt-6" />
 
       {aiAssisted && (
         <p className="mt-10 rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-sm text-neutral-400">

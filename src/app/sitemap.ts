@@ -7,10 +7,11 @@ export const revalidate = 3600;
 
 // /sitemap.xml: tells search engines which pages exist. Matches are left out: they're many, short-lived and thin.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [articles, leagues, categories] = await Promise.all([
+  const [articles, leagues, categories, teams] = await Promise.all([
     prisma.article.findMany({ where: publicArticleWhere(), select: { slug: true, updatedAt: true }, orderBy: { publishedAt: "desc" }, take: 5000 }),
     prisma.league.findMany({ select: { slug: true } }),
     prisma.category.findMany({ select: { slug: true } }),
+    prisma.team.findMany({ select: { slug: true } }),
   ]);
   const url = siteUrl();
   return [
@@ -21,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${url}/privasi`, changeFrequency: "yearly", priority: 0.1 },
     ...categories.map((c) => ({ url: `${url}/kategori/${c.slug}`, changeFrequency: "daily" as const, priority: 0.6 })),
     ...leagues.map((l) => ({ url: `${url}/leagues/${l.slug}`, changeFrequency: "daily" as const, priority: 0.7 })),
+    ...teams.map((t) => ({ url: `${url}/kelab/${t.slug}`, changeFrequency: "daily" as const, priority: 0.6 })),
     ...articles.map((a) => ({ url: `${url}/artikel/${a.slug}`, lastModified: a.updatedAt, priority: 0.6 })),
   ];
 }

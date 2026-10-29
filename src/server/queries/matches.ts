@@ -74,13 +74,48 @@ export async function getLeagueMatches(leagueId: string) {
   return { results, fixtures };
 }
 
+/** Our club page slugs for teams known by provider id (standings and top scorers come from ESPN, not our DB). */
+export async function getTeamSlugs(externalIds: (string | null)[]): Promise<Map<string, string>> {
+  const ids = [...new Set(externalIds.filter((id): id is string => id !== null))];
+  if (ids.length === 0) return new Map();
+  const teams = await prisma.team.findMany({ where: { externalId: { in: ids } }, select: { externalId: true, slug: true } });
+  return new Map(teams.map((t) => [t.externalId, t.slug]));
+}
+
+export const getTeam = cache((slug: string) =>
+  prisma.team.findUnique({
+    where: { slug },
+    select: { id: true, externalId: true, name: true, shortName: true, slug: true, logoUrl: true, league: { select: { id: true, name: true, slug: true } } },
+  }),
+);
+
+/** A club's matches in every competition: recent results and upcoming fixtures. */
+export async function getTeamMatches(teamId: string) {
+  const ofTeam = { OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }] };
+  const [results, fixtures] = await Promise.all([
+    prisma.match.findMany({
+      where: { ...ofTeam, status: { in: [MatchStatus.FINISHED, ...LIVE] } },
+      orderBy: { kickoffAt: "desc" },
+      take: 10,
+      select: matchListSelect,
+    }),
+    prisma.match.findMany({
+      where: { ...ofTeam, status: { in: [MatchStatus.SCHEDULED, MatchStatus.POSTPONED] }, kickoffAt: { gte: new Date(Date.now() - DAY) } },
+      orderBy: { kickoffAt: "asc" },
+      take: 10,
+      select: matchListSelect,
+    }),
+  ]);
+  return { results, fixtures };
+}
+
 export const getMatch = cache((id: string) =>
   prisma.match.findUnique({
     where: { id },
     include: {
       league: { select: { name: true, slug: true, logoUrl: true } },
-      homeTeam: { select: { id: true, externalId: true, name: true, shortName: true, logoUrl: true } },
-      awayTeam: { select: { id: true, externalId: true, name: true, shortName: true, logoUrl: true } },
+      homeTeam: { select: { id: true, externalId: true, name: true, shortName: true, slug: true, logoUrl: true } },
+      awayTeam: { select: { id: true, externalId: true, name: true, shortName: true, slug: true, logoUrl: true } },
       playerStats: { include: { player: { select: { name: true, position: true } } } },
     },
   }),

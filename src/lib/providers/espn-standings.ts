@@ -1,4 +1,5 @@
-// League tables from ESPN's public standings API. Not stored in our DB: fetched on demand and cached for 15 minutes.
+// League tables and top scorers from ESPN's public API. Not stored in our DB: fetched on demand and cached for 15 minutes.
+// (Our own player stats only cover matches synced since the site started, so season totals must come from ESPN.)
 
 const HEADERS = { "User-Agent": "SembangBola (personal non-commercial site)" };
 
@@ -6,6 +7,7 @@ export type Zone = "ucl" | "uel" | "uecl" | "playoff" | "relegation" | "r16" | "
 
 export interface StandingRow {
   rank: number;
+  teamExternalId: string; // matches Team.externalId, e.g. "espn:359"
   name: string;
   shortName: string;
   logoUrl: string | null;
@@ -21,7 +23,7 @@ export interface StandingRow {
 }
 
 interface EspnEntry {
-  team: { displayName: string; shortDisplayName?: string; logos?: { href: string }[] };
+  team: { id: string; displayName: string; shortDisplayName?: string; logos?: { href: string }[] };
   note?: { description?: string };
   stats: { name: string; value?: number }[];
 }
@@ -55,6 +57,7 @@ export async function getStandings(espnSlug: string): Promise<StandingRow[]> {
       const stat = (name: string) => e.stats.find((s) => s.name === name)?.value ?? 0;
       return {
         rank: stat("rank"),
+        teamExternalId: `espn:${e.team.id}`,
         name: e.team.displayName,
         shortName: e.team.shortDisplayName ?? e.team.displayName,
         logoUrl: e.team.logos?.[0]?.href ?? null,
@@ -70,4 +73,45 @@ export async function getStandings(espnSlug: string): Promise<StandingRow[]> {
       };
     })
     .sort((a, b) => a.rank - b.rank);
+}
+
+export interface LeaderRow {
+  playerName: string;
+  teamExternalId: string | null;
+  teamName: string | null;
+  teamLogoUrl: string | null;
+  value: number;
+  appearances: number | null;
+}
+
+interface EspnLeader {
+  value: number;
+  athlete: {
+    displayName: string;
+    team?: { id: string; displayName: string; logos?: { href: string }[] };
+    statistics?: { name: string; value: number }[];
+  };
+}
+
+/** Season top scorers and assist makers (top 50 each), cached for 15 minutes. */
+export async function getLeaders(espnSlug: string): Promise<{ goals: LeaderRow[]; assists: LeaderRow[] }> {
+  const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${espnSlug}/statistics`, {
+    headers: HEADERS,
+    next: { revalidate: 900 },
+  });
+  if (!res.ok) throw new Error(`ESPN statistics ${res.status}`);
+  const data = (await res.json()) as { stats?: { name: string; leaders?: EspnLeader[] }[] };
+
+  const list = (name: string): LeaderRow[] =>
+    (data.stats?.find((s) => s.name === name)?.leaders ?? [])
+      .filter((l) => l.value > 0)
+      .map((l) => ({
+        playerName: l.athlete.displayName,
+        teamExternalId: l.athlete.team ? `espn:${l.athlete.team.id}` : null,
+        teamName: l.athlete.team?.displayName ?? null,
+        teamLogoUrl: l.athlete.team?.logos?.[0]?.href ?? null,
+        value: l.value,
+        appearances: l.athlete.statistics?.find((s) => s.name === "appearances")?.value ?? null,
+      }));
+  return { goals: list("goalsLeaders"), assists: list("assistsLeaders") };
 }

@@ -34,6 +34,7 @@ export function getLatestArticles({
   take = 6,
   leagueId,
   matchId,
+  team,
   excludeId,
   section,
   categorySlug,
@@ -41,6 +42,8 @@ export function getLatestArticles({
   take?: number;
   leagueId?: string;
   matchId?: string;
+  /** Reports on one of this team's matches, or any story naming the team in its title. */
+  team?: { id: string; name: string };
   excludeId?: string;
   section?: CategorySection;
   categorySlug?: string;
@@ -56,6 +59,14 @@ export function getLatestArticles({
           ...(categorySlug && { category: { slug: categorySlug } }),
         },
         section ? sectionWhere(section) : {},
+        team
+          ? {
+              OR: [
+                { match: { OR: [{ homeTeamId: team.id }, { awayTeamId: team.id }] } },
+                { title: { contains: team.name, mode: "insensitive" } },
+              ],
+            }
+          : {},
       ],
     },
     orderBy: { publishedAt: "desc" },

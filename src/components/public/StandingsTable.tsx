@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { StandingRow, Zone } from "@/lib/providers/espn-standings";
 import { TeamLogo } from "./TeamLogo";
 
@@ -12,7 +13,17 @@ const ZONES: Record<Zone, { label: string; bar: string }> = {
   eliminated: { label: "Tersingkir", bar: "bg-red-500" },
 };
 
-export function StandingsTable({ rows }: { rows: StandingRow[] }) {
+export function StandingsTable({
+  rows,
+  teamSlugs,
+  highlightExternalId,
+}: {
+  rows: StandingRow[];
+  /** Links each team to its club page when we know it. */
+  teamSlugs?: Map<string, string>;
+  /** Marks one team's row, e.g. on that club's own page. */
+  highlightExternalId?: string;
+}) {
   if (rows.length === 0) return <p className="card px-5 py-10 text-center text-sm text-neutral-500">Jadual liga tak dapat dimuatkan sekarang.</p>;
   const zonesUsed = [...new Set(rows.map((r) => r.zone).filter(Boolean))] as Zone[];
 
@@ -33,8 +44,16 @@ export function StandingsTable({ rows }: { rows: StandingRow[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-800/60">
-          {rows.map((r) => (
-            <tr key={r.name} className="hover:bg-white/[0.02]">
+          {rows.map((r) => {
+            const slug = teamSlugs?.get(r.teamExternalId);
+            const names = (
+              <>
+                <span className="truncate sm:hidden">{r.shortName}</span>
+                <span className="hidden truncate sm:inline">{r.name}</span>
+              </>
+            );
+            return (
+            <tr key={r.name} className={r.teamExternalId === highlightExternalId ? "bg-emerald-500/10" : "hover:bg-white/[0.02]"}>
               <td className="relative py-2.5 pl-4 tabular-nums text-neutral-400">
                 {r.zone && <span className={`absolute inset-y-1 left-0 w-1 rounded-r ${ZONES[r.zone].bar}`} title={ZONES[r.zone].label} />}
                 {r.rank}
@@ -42,8 +61,11 @@ export function StandingsTable({ rows }: { rows: StandingRow[] }) {
               <td className="max-w-0 py-2.5">
                 <div className="flex items-center gap-2.5">
                   <TeamLogo src={r.logoUrl} name={r.name} size={20} />
-                  <span className="truncate sm:hidden">{r.shortName}</span>
-                  <span className="hidden truncate sm:inline">{r.name}</span>
+                  {slug ? (
+                    <Link href={`/kelab/${slug}`} className="flex min-w-0 hover:text-emerald-400">{names}</Link>
+                  ) : (
+                    names
+                  )}
                 </div>
               </td>
               <td className="text-center tabular-nums text-neutral-400">{r.played}</td>
@@ -56,7 +78,8 @@ export function StandingsTable({ rows }: { rows: StandingRow[] }) {
               <td className="text-center tabular-nums text-neutral-400">{r.goalDiff > 0 ? `+${r.goalDiff}` : r.goalDiff}</td>
               <td className="pr-4 text-center font-bold tabular-nums">{r.points}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       {zonesUsed.length > 0 && (
