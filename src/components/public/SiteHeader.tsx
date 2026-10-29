@@ -30,6 +30,17 @@ export async function SiteHeader() {
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <Link href="/berita" className={mainLink}>Berita</Link>
           <Link href="/artikel" className={mainLink}>Artikel</Link>
+          <Link
+            href="/cari"
+            aria-label="Cari"
+            title="Cari"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition hover:bg-white/5 hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </Link>
           <ThemeToggle />
         </div>
       </div>
