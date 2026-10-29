@@ -2,7 +2,11 @@ export const SITE_NAME = "Sembang Bola";
 export const SITE_DESCRIPTION = "Skor langsung, keputusan, jadual perlawanan dan cerita panas dari 5 liga utama Eropah dan Liga Juara-Juara.";
 
 // All times are rendered on the server in one timezone so pages can be cached.
-export const SITE_TIMEZONE = process.env.SITE_TIMEZONE ?? "Asia/Kuala_Lumpur";
+/** Absolute URL on this site, for places that need one (sitemap, structured data). */
+export const siteUrl = (path = "") => (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "") + path;
+// Shown on the privacy page for data requests. Optional: without it the page points to the admins instead.
+export const SITE_CONTACT_EMAIL = process.env.SITE_CONTACT_EMAIL || null;
+export const SITE_TIMEZONE =process.env.SITE_TIMEZONE ?? "Asia/Kuala_Lumpur";
 
 const fmt = (options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("ms-MY", { timeZone: SITE_TIMEZONE, ...options });
 const timeFmt = fmt({ hour: "2-digit", minute: "2-digit", hour12: false });

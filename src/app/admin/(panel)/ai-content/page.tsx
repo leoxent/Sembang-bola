@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AiContentStatus, AiContentType, JobStatus, NewsTopicStatus } from "@prisma/client";
 import { AiActionForm } from "@/components/admin/AiActionForm";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { AI_DAILY_BUDGET_USD, aiSpendLast24hUsd } from "@/lib/ai/budget";
 import { AI_MODEL, draftCost } from "@/lib/ai/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -46,6 +47,7 @@ export default async function AiContentPage() {
     prisma.aiJob.findMany({ where: { status: JobStatus.FAILED }, orderBy: { finishedAt: "desc" }, take: 3 }),
     prisma.league.findMany({ orderBy: { name: "asc" }, select: { slug: true, name: true } }),
   ]);
+  const spent = await aiSpendLast24hUsd();
   const jobs = (s: JobStatus) => jobCounts.find((j) => j.status === s)?._count ?? 0;
   const hasKey = Boolean(process.env.ANTHROPIC_API_KEY);
 
@@ -71,6 +73,10 @@ export default async function AiContentPage() {
           <p className="text-sm text-neutral-400">
             <span className="text-2xl font-semibold tabular-nums text-white">{jobs(JobStatus.PENDING) + jobs(JobStatus.RUNNING)}</span> waiting ·{" "}
             {jobs(JobStatus.FAILED)} failed
+          </p>
+          <p className={`text-xs ${spent >= AI_DAILY_BUDGET_USD ? "font-semibold text-red-400" : "text-neutral-500"}`}>
+            Spent ${spent.toFixed(2)} of ${AI_DAILY_BUDGET_USD.toFixed(2)} in the last 24h
+            {spent >= AI_DAILY_BUDGET_USD && ": budget reached, jobs are paused"}
           </p>
           <AiActionForm action={runOneJob} label="Run next job" pendingLabel="Writing… (up to ~90s)" primary />
           {jobs(JobStatus.FAILED) > 0 && <AiActionForm action={retryFailedJobs} label="Retry failed" pendingLabel="Re-queuing…" />}

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { sendAlert } from "@/lib/alerts";
 import { isAuthorizedCron } from "@/lib/auth/cron";
 import { syncPlayerStats } from "@/lib/sync/player-stats";
 
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(await syncPlayerStats({ limit }));
   } catch (err) {
     console.error("[sync-player-stats]", err);
+    await sendAlert(`Sync statistik pemain gagal: ${err instanceof Error ? err.message : err}`.slice(0, 600));
     return NextResponse.json({ error: err instanceof Error ? err.message : "Sync failed" }, { status: 502 });
   }
 }

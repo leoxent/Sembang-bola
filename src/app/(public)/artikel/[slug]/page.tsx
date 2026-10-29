@@ -8,7 +8,7 @@ import { Markdown } from "@/components/public/Markdown";
 import { MatchRow } from "@/components/public/MatchList";
 import { coverFor } from "@/lib/cover";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/site";
+import { formatDate, SITE_NAME, siteUrl } from "@/lib/site";
 import { getLatestArticles, getPublicArticle } from "@/server/queries/articles";
 import { matchListSelect } from "@/server/queries/matches";
 
@@ -22,11 +22,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: article.title,
     description: article.excerpt ?? undefined,
+    alternates: { canonical: `/artikel/${article.slug}` },
     openGraph: {
       title: article.title,
       description: article.excerpt ?? undefined,
       type: "article",
       images: [coverFor(article)],
+      publishedTime: article.publishedAt?.toISOString(),
+      modifiedTime: article.updatedAt.toISOString(),
+      section: article.category?.name,
+      tags: article.tags,
     },
     twitter: { card: "summary_large_image" },
   };
@@ -52,8 +57,33 @@ export default async function ArticlePage({ params }: Props) {
   // Transparency line: who checked it, or that it was published automatically from match data.
   const reviewNote = !aiAssisted ? null : reviewer ? `Disemak oleh ${reviewer}` : byRex ? "Diterbitkan automatik" : null;
 
+  // Structured data: lets Google show the story in Top Stories / Discover with its headline, image and date.
+  const cover = coverFor(article);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": article.category?.section === "RENCANA" ? "Article" : "NewsArticle",
+    headline: article.title,
+    description: article.excerpt ?? undefined,
+    image: [cover.startsWith("/") ? siteUrl(cover) : cover],
+    datePublished: article.publishedAt?.toISOString(),
+    dateModified: article.updatedAt.toISOString(),
+    inLanguage: "ms",
+    mainEntityOfPage: siteUrl(`/artikel/${article.slug}`),
+    articleSection: article.category?.name,
+    keywords: article.tags.length > 0 ? article.tags.join(", ") : undefined,
+    author: article.author
+      ? { "@type": byRex ? "Organization" : "Person", name: article.author.name, url: siteUrl("/tentang") }
+      : { "@type": "Organization", name: SITE_NAME, url: siteUrl() },
+    publisher: { "@type": "Organization", name: SITE_NAME, url: siteUrl(), logo: { "@type": "ImageObject", url: siteUrl("/apple-icon") } },
+  };
+
   return (
     <article className="mx-auto max-w-3xl">
+      <script
+        type="application/ld+json"
+        // Escaping "<" keeps a title like "</script>" from breaking out of the tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+      />
       <header className="space-y-5">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {article.category && (
@@ -110,7 +140,7 @@ export default async function ArticlePage({ params }: Props) {
       </header>
 
       {/* eslint-disable-next-line @next/next/no-img-element -- custom covers can come from any host an editor pastes */}
-      <img src={coverFor(article)} alt="" className="mt-8 aspect-[1200/630] w-full rounded-2xl object-cover" />
+      <img src={cover} alt="" className="mt-8 aspect-[1200/630] w-full rounded-2xl object-cover" />
 
       {match && (
         <div className="card mt-8 overflow-hidden">

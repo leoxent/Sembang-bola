@@ -7,7 +7,9 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-xs text-neutral-500 sm:flex-row sm:justify-between">
         <p>
           © {new Date().getFullYear()} {SITE_NAME}. Projek peribadi, bukan komersial. ·{" "}
-          <Link href="/tentang" className="text-neutral-400 hover:text-white">Tentang kami</Link>
+          <Link href="/tentang" className="text-neutral-400 hover:text-white">Tentang kami</Link> ·{" "}
+          <Link href="/tentang#penafian" className="text-neutral-400 hover:text-white">Penafian</Link> ·{" "}
+          <Link href="/privasi" className="text-neutral-400 hover:text-white">Privasi</Link>
         </p>
         <p>
           Data perlawanan: ESPN · Waktu dipaparkan mengikut waktu {SITE_TIMEZONE.split("/").pop()!.replace("_", " ")}

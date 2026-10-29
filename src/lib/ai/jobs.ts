@@ -1,5 +1,7 @@
 import { AiContentType, JobStatus, NewsTopicStatus, Prisma } from "@prisma/client";
+import { sendAlert } from "@/lib/alerts";
 import { prisma } from "@/lib/prisma";
+import { AI_DAILY_BUDGET_USD, aiSpendLast24hUsd } from "./budget";
 import { AiRefusalError } from "./client";
 import { generateMatchSummary, generatePlayerOfTheWeek, type GenerateResult, type PotwPayload } from "./generate";
 import { generateFeature } from "./feature";
@@ -57,7 +59,7 @@ export async function enqueueNewsArticle(topicId: string): Promise<void> {
 // ─── Run ────────────────────────────────────────────────────────────────────
 
 export type JobRunResult =
-  | { ran: false }
+  | { ran: false; budgetReached?: true }
   | { ran: true; jobId: string; type: AiContentType; outcome: GenerateResult | { status: "failed"; error: string; willRetry: boolean } };
 
 /** Claims and runs the oldest due job. Safe to call concurrently: a job is claimed with a conditional update. */
@@ -73,6 +75,10 @@ export async function runNextJob(): Promise<JobRunResult> {
     orderBy: { createdAt: "asc" },
   });
   if (!next) return { ran: false };
+
+  // Over budget: leave the job queued; it runs once older drafts leave the 24-hour window.
+  const spentBefore = await aiSpendLast24hUsd();
+  if (spentBefore >= AI_DAILY_BUDGET_USD) return { ran: false, budgetReached: true };
 
   const claimed = await prisma.aiJob.updateMany({
     where: { id: next.id, status: JobStatus.PENDING },
@@ -108,6 +114,14 @@ export async function runNextJob(): Promise<JobRunResult> {
         lastError: outcome.status === "skipped" ? `Skipped: ${outcome.reason}` : null,
       },
     });
+    // Alert once, on the job that crosses the line, not on every job it holds back afterwards.
+    const spentAfter = await aiSpendLast24hUsd();
+    if (spentAfter >= AI_DAILY_BUDGET_USD) {
+      await sendAlert(
+        `Rex dah capai had belanja AI: $${spentAfter.toFixed(2)} dalam 24 jam (had $${AI_DAILY_BUDGET_USD}). ` +
+          "Kerja baru akan tunggu sampai bawah had. Naikkan AI_DAILY_BUDGET_USD kalau memang perlu.",
+      );
+    }
     return { ran: true, jobId: next.id, type: next.type, outcome };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -119,6 +133,7 @@ export async function runNextJob(): Promise<JobRunResult> {
         : { status: JobStatus.FAILED, lastError: error, finishedAt: new Date() },
     });
     console.error(`[ai-job ${next.id}]`, err);
+    if (!willRetry) await sendAlert(`Kerja Rex gagal (${next.type}, ${next.attempts + 1} cubaan): ${error.slice(0, 500)}`);
     return { ran: true, jobId: next.id, type: next.type, outcome: { status: "failed", error, willRetry } };
   }
 }

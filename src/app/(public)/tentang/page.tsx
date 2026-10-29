@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { InfoSection as Section } from "@/components/public/InfoSection";
 import { SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Tentang kami",
   description: `Apa itu ${SITE_NAME}, bagaimana kami menggunakan AI, dan dari mana data kami datang.`,
 };
-
-function Section({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
-  return (
-    <section id={id} className="scroll-mt-24 space-y-3">
-      <h2 className="text-xl font-bold">{title}</h2>
-      <div className="space-y-3 leading-relaxed text-neutral-300">{children}</div>
-    </section>
-  );
-}
 
 export default function AboutPage() {
   return (
@@ -72,15 +64,22 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <Section title="Penafian">
+      <Section id="penafian" title="Penafian">
         <p>
           {SITE_NAME} ialah projek peribadi bukan komersial, dan tidak berkaitan dengan mana-mana liga, kelab atau pemain. Nama dan
           logo liga serta kelab adalah milik pemilik masing-masing.
         </p>
+        <p>
+          Kami cuba pastikan semua skor, statistik dan fakta tepat, tetapi data datang daripada pihak ketiga dan sebahagian artikel
+          ditulis AI, jadi kesilapan boleh berlaku. Semak sumber rasmi untuk apa-apa yang penting, dan jangan jadikan laman ini
+          asas untuk pertaruhan. Roasting dalam artikel ialah gurauan tentang prestasi di padang, bukan pendapat tentang
+          sesiapa secara peribadi.
+        </p>
       </Section>
 
-      <p className="text-sm text-neutral-500">
+      <p className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500">
         <Link href="/" className="text-emerald-400 hover:underline">← Kembali ke laman utama</Link>
+        <Link href="/privasi" className="text-emerald-400 hover:underline">Dasar privasi</Link>
       </p>
     </div>
   );

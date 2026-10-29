@@ -74,6 +74,7 @@ export async function runOneJob(): Promise<AiActionState> {
   await requireAdmin();
   const r = await runNextJob();
   revalidatePath("/admin/ai-content");
+  if (!r.ran && r.budgetReached) return { error: "Daily AI budget reached. Jobs stay queued until spend drops below the limit." };
   if (!r.ran) return { message: "The queue is empty." };
   const label = JOB_LABEL[r.type];
   switch (r.outcome.status) {
