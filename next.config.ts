@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "crests.football-data.org" },
     ],
   },
+  // The cover image route reads Inter from node_modules at runtime; make sure the deploy ships those files.
+  outputFileTracingIncludes: {
+    "/og/article/[id]": ["./node_modules/@fontsource/inter/files/inter-latin-*-normal.woff"],
+  },
   // Old addresses keep working: /news (before the Berita/Artikel split) and /rencana (renamed to Artikel).
   async redirects() {
     return [
