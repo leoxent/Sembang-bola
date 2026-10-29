@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // Supabase pooled connection (pgbouncer)
+  directUrl = env("DIRECT_URL")   // Supabase direct connection, used by migrations
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
+}
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentOrigin {
+  HUMAN
+  AI
+  AI_EDITED // AI draft that a human revised
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  HALFTIME
+  FINISHED
+  POSTPONED
+  CANCELLED
+}
+
+enum AiContentType {
+  MATCH_SUMMARY
+  PLAYER_OF_THE_WEEK
+  NEWS_ARTICLE
+  WEEKLY_ROUNDUP
+  FEATURE // a Rencana piece Rex chooses and writes
+}
+
+enum NewsTopicStatus {
+  NEW
+  QUEUED   // an article job has been created
+  WRITTEN
+  DISMISSED
+}
+
+enum AiContentStatus {
+  GENERATED // awaiting human review
+  APPROVED  // promoted to an Article
+  REJECTED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// ─── Admins ─────────────────────────────────────────────────────────────────
+
+model Admin {
+  id           String    @id @default(cuid())
+  username       String    @unique // lowercase, used to sign in
+  email          String    @unique
+  passwordHash   String    // bcrypt
+  name           String    // display name, shown as article byline
+  title          String?   // e.g. "Senior Writer"
+  bio            String?
+  avatarUrl      String?   // small WebP data URL (resized in the browser to 256px)
+  role           AdminRole @default(EDITOR)
+  isActive       Boolean   @default(true)
+  isBot          Boolean   @default(false) // Rex, the AI writer: an author profile that can never sign in
+  sessionVersion Int       @default(0) // bump to sign this admin out everywhere
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  articles         Article[]   @relation("ArticleAuthor")
+  reviewedContent  AiContent[] @relation("AiContentReviewer")
+}
+
+// Failed sign-in attempts, used to lock out password guessing. Rows older than a day are pruned on each login.
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  identifier String   // username or email as typed (lowercased)
+  ip         String
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
+}
+
+// ─── Football data (synced from the external API) ──────────────────────────
+
+model League {
+  id         String  @id @default(cuid())
+  externalId String  @unique // e.g. "espn:eng.1"
+  name       String
+  country    String
+  slug       String  @unique // e.g. "premier-league"
+  logoUrl    String?
+  season     Int     // current season, e.g. 2026
+
+  teams    Team[]
+  matches  Match[]
+  articles Article[]
+}
+
+model Team {
+  id         String  @id @default(cuid())
+  externalId String  @unique
+  name       String
+  shortName  String?
+  slug       String  @unique
+  logoUrl    String?
+  leagueId   String
+  league     League  @relation(fields: [leagueId], references: [id])
+
+  players     Player[]
+  homeMatches Match[]  @relation("HomeTeam")
+  awayMatches Match[]  @relation("AwayTeam")
+
+  @@index([leagueId])
+}
+
+model Player {
+  id         String  @id @default(cuid())
+  externalId String  @unique
+  name       String
+  position   String?
+  photoUrl   String?
+  teamId     String?
+  team       Team?   @relation(fields: [teamId], references: [id])
+
+  matchStats PlayerMatchStat[]
+  aiContent  AiContent[]
+
+  @@index([teamId])
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  externalId   String      @unique // "<provider>:<id>", e.g. "espn:401879254"
+  leagueId     String
+  league       League      @relation(fields: [leagueId], references: [id])
+  season       Int
+  round        String?     // e.g. "Regular Season - 10"
+  kickoffAt    DateTime
+  status       MatchStatus @default(SCHEDULED)
+  minute       Int?        // live clock
+  venue        String?
+
+  homeTeamId   String
+  homeTeam     Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String
+  awayTeam     Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  homeScore    Int?
+  awayScore    Int?
+
+  events       Json?       // goals, cards, subs
+  teamStats    Json?       // possession, shots, xG...
+  rawPayload   Json?       // last full provider response, for AI input / debugging
+  lastSyncedAt DateTime    @default(now())
+
+  playerStats  PlayerMatchStat[]
+  articles     Article[]
+  aiContent    AiContent[]
+
+  @@index([kickoffAt])
+  @@index([status])
+  @@index([leagueId, season, round])
+}
+
+model PlayerMatchStat {
+  id       String  @id @default(cuid())
+  matchId  String
+  match    Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player  @relation(fields: [playerId], references: [id])
+  teamId   String
+
+  minutes  Int?
+  rating   Decimal? @db.Decimal(4, 2)
+  goals    Int      @default(0)
+  assists  Int      @default(0)
+  extra    Json?    // passes, tackles, shots, saves... (provider-specific)
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+}
+
+// ─── Editorial ──────────────────────────────────────────────────────────────
+
+enum CategorySection {
+  BERITA  // news and match reports
+  RENCANA // features: legends, rules, history...
+}
+
+// Article categories, managed by the main admin. The slug is fixed at creation so URLs don't break on rename.
+model Category {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  section     CategorySection
+  description String?
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+
+  articles Article[]
+}
+
+model Article {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  title         String
+  excerpt       String?
+  body          String        // Markdown / MDX
+  coverImageUrl String?
+  tags          String[]
+  status        ArticleStatus @default(DRAFT)
+  origin        ContentOrigin @default(HUMAN)
+  publishedAt   DateTime?
+  scheduledFor  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  authorId      String?       // null for unreviewed AI output
+  author        Admin?        @relation("ArticleAuthor", fields: [authorId], references: [id])
+  categoryId    String?
+  category      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  leagueId      String?
+  league        League?       @relation(fields: [leagueId], references: [id])
+  matchId       String?
+  match         Match?        @relation(fields: [matchId], references: [id])
+  aiContentId   String?       @unique
+  aiContent     AiContent?    @relation(fields: [aiContentId], references: [id])
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([leagueId])
+  @@index([matchId])
+}
+
+// ─── AI pipeline ────────────────────────────────────────────────────────────
+
+// Raw AI output. Never shown publicly until an admin promotes it to an Article.
+model AiContent {
+  id            String          @id @default(cuid())
+  type          AiContentType
+  status        AiContentStatus @default(GENERATED)
+  title         String
+  body          String          // Markdown
+  structured    Json?           // e.g. key stats, POTW shortlist with scores
+  model         String          // model id used
+  promptVersion String          // lets you compare / regenerate after prompt changes
+  inputHash     String          // hash of input data; skip regeneration if unchanged
+  inputTokens   Int?
+  outputTokens  Int?
+  createdAt     DateTime        @default(now())
+
+  matchId       String?
+  match         Match?          @relation(fields: [matchId], references: [id])
+  playerId      String?         // POTW subject
+  player        Player?         @relation(fields: [playerId], references: [id])
+  weekStart     DateTime?       // POTW period
+  reviewedById  String?
+  reviewedBy    Admin?          @relation("AiContentReviewer", fields: [reviewedById], references: [id])
+  reviewedAt    DateTime?
+
+  article       Article?
+  job           AiJob?          @relation(fields: [jobId], references: [id])
+  jobId         String?
+
+  @@unique([type, matchId, promptVersion])
+  @@index([type, status])
+  @@index([weekStart])
+}
+
+// A trending story found by the AI's web search, waiting for an editor to pick it for an article.
+model NewsTopic {
+  id         String          @id @default(cuid())
+  headline   String          // short working title (Malay)
+  summary    String          // what happened, in a few sentences
+  angle      String          // the take / joke angle suggested for the article
+  facts      Json            // string[] of checkable facts, each attributed
+  sources    Json            // { title, url }[]
+  leagueSlug String?
+  category   String          @default("berita") // category slug for the article: berita, perpindahan, dunia-bola
+  status     NewsTopicStatus @default(NEW)
+  createdAt  DateTime        @default(now())
+
+  @@index([status, createdAt])
+}
+
+// Simple DB-backed queue for the background worker (sync + generation).
+model AiJob {
+  id          String        @id @default(cuid())
+  type        AiContentType
+  status      JobStatus     @default(PENDING)
+  payload     Json          // e.g. { matchId } or { weekStart, leagueIds }
+  attempts    Int           @default(0)
+  lastError   String?
+  runAfter    DateTime      @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  outputs     AiContent[]
+
+  @@index([status, runAfter])
+}

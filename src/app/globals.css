@@ -1,0 +1,132 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Light theme. The site is styled dark-first, so light mode flips the palette instead of restyling every
+ * component: neutrals run the other way (bg-neutral-950 becomes an off-white page, text-neutral-100 near-black),
+ * "white" text becomes dark, and accent text shades darken so they stay readable on white.
+ * The originals are copied on <html> and the swap happens on <body>: a variable can't be redefined from
+ * itself on the same element.
+ */
+:root {
+  --dk-white: var(--color-white);
+  --dk-neutral-50: var(--color-neutral-50);
+  --dk-neutral-100: var(--color-neutral-100);
+  --dk-neutral-200: var(--color-neutral-200);
+  --dk-neutral-300: var(--color-neutral-300);
+  --dk-neutral-400: var(--color-neutral-400);
+  --dk-neutral-500: var(--color-neutral-500);
+  --dk-neutral-600: var(--color-neutral-600);
+  --dk-neutral-700: var(--color-neutral-700);
+  --dk-neutral-800: var(--color-neutral-800);
+  --dk-neutral-900: var(--color-neutral-900);
+  --dk-neutral-950: var(--color-neutral-950);
+  --dk-emerald-50: var(--color-emerald-50);
+  --dk-emerald-600: var(--color-emerald-600);
+  --dk-emerald-700: var(--color-emerald-700);
+  --dk-emerald-800: var(--color-emerald-800);
+  --dk-amber-50: var(--color-amber-50);
+  --dk-amber-600: var(--color-amber-600);
+  --dk-amber-700: var(--color-amber-700);
+  --dk-amber-800: var(--color-amber-800);
+  --dk-red-600: var(--color-red-600);
+  --dk-red-700: var(--color-red-700);
+  --dk-red-800: var(--color-red-800);
+  --dk-violet-600: var(--color-violet-600);
+  --dk-violet-700: var(--color-violet-700);
+  --dk-violet-800: var(--color-violet-800);
+  --dk-sky-600: var(--color-sky-600);
+  --dk-sky-700: var(--color-sky-700);
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  background: var(--dk-neutral-100);
+}
+html:not([data-theme="light"]) {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] body {
+  --color-white: var(--dk-neutral-950);
+  --color-neutral-950: var(--dk-neutral-100);
+  --color-neutral-900: var(--dk-white);
+  --color-neutral-800: var(--dk-neutral-200);
+  --color-neutral-700: var(--dk-neutral-300);
+  --color-neutral-600: var(--dk-neutral-400);
+  --color-neutral-500: var(--dk-neutral-500);
+  --color-neutral-400: var(--dk-neutral-600);
+  --color-neutral-300: var(--dk-neutral-700);
+  --color-neutral-200: var(--dk-neutral-800);
+  --color-neutral-100: var(--dk-neutral-900);
+  --color-neutral-50: var(--dk-neutral-950);
+  --color-emerald-950: var(--dk-emerald-50);
+  --color-emerald-500: var(--dk-emerald-600);
+  --color-emerald-400: var(--dk-emerald-700);
+  --color-emerald-300: var(--dk-emerald-700);
+  --color-emerald-200: var(--dk-emerald-800);
+  --color-amber-950: var(--dk-amber-50);
+  --color-amber-500: var(--dk-amber-600);
+  --color-amber-400: var(--dk-amber-700);
+  --color-amber-300: var(--dk-amber-700);
+  --color-amber-200: var(--dk-amber-800);
+  --color-red-500: var(--dk-red-600);
+  --color-red-400: var(--dk-red-700);
+  --color-red-300: var(--dk-red-700);
+  --color-red-200: var(--dk-red-800);
+  --color-violet-500: var(--dk-violet-600);
+  --color-violet-300: var(--dk-violet-700);
+  --color-violet-200: var(--dk-violet-800);
+  --color-sky-500: var(--dk-sky-600);
+  --color-sky-400: var(--dk-sky-700);
+  --color-sky-300: var(--dk-sky-700);
+}
+
+/* Article text: the typography plugin's prose-invert colours are fixed values, so light mode sets them back. */
+html[data-theme="light"] .prose-invert {
+  --tw-prose-invert-body: var(--dk-neutral-700);
+  --tw-prose-invert-headings: var(--dk-neutral-900);
+  --tw-prose-invert-lead: var(--dk-neutral-600);
+  --tw-prose-invert-links: var(--dk-neutral-900);
+  --tw-prose-invert-bold: var(--dk-neutral-900);
+  --tw-prose-invert-counters: var(--dk-neutral-500);
+  --tw-prose-invert-bullets: var(--dk-neutral-300);
+  --tw-prose-invert-hr: var(--dk-neutral-200);
+  --tw-prose-invert-quotes: var(--dk-neutral-900);
+  --tw-prose-invert-quote-borders: var(--dk-neutral-200);
+  --tw-prose-invert-captions: var(--dk-neutral-500);
+  --tw-prose-invert-kbd: var(--dk-neutral-900);
+  --tw-prose-invert-code: var(--dk-neutral-900);
+  --tw-prose-invert-pre-code: var(--dk-neutral-200);
+  --tw-prose-invert-pre-bg: var(--dk-neutral-800);
+  --tw-prose-invert-th-borders: var(--dk-neutral-300);
+  --tw-prose-invert-td-borders: var(--dk-neutral-200);
+}
+
+/* League logos are ESPN's dark-background variant; <LeagueLogo> renders both and the theme picks one. */
+html[data-theme="light"] .theme-dark-only,
+html:not([data-theme="light"]) .theme-light-only {
+  display: none !important;
+}
+
+@layer components {
+  .admin-input {
+    @apply w-full rounded-lg border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-neutral-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-neutral-200 transition hover:border-neutral-600 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/10 disabled:opacity-50;
+  }
+  .card {
+    @apply rounded-2xl border border-neutral-800 bg-neutral-900/60;
+  }
+}
